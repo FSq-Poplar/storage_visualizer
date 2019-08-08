@@ -3,10 +3,30 @@ import os
 import math
 import pygame
 import sys
-from random import randint
 from typing import List, Tuple, Optional
 
-DIMENSIONS = (854, 480)
+DIMENSIONS = (1024, 576)
+FILE_EXTENSIONS = {"Audio": [".aif", ".cda", ".mid", ".midi", "mp3",
+                             ".mpa", ".ogg", ".wav", ".wma", ".wpl"],
+                   "Executable": [".apk", ".bat", ".bin", ".cgi", ".pl",
+                                  ".com", ".exe", ".gadget", ".jar", ".wsf"],
+                   "Image": [".ai", ".bmp", "gif", "ico", ".jpeg", "jpg",
+                             ".png", ".ps", ".psd", ".svg", ".tif", "tiff"],
+                   "Presentation": [".key", ".odp", ".pps", ".ppt", ".pptx"],
+                   "Spreadsheet": [".ods", ".xlr", ".xls", ".xlsx"],
+                   "Video": [".3g2", ".3gp", ".avi", ".flv", ".h264", ".m4v",
+                             ".mkv", ".mov", ".mp4", ".mpg", ".mpeg", ".rm",
+                             ".swf", ".vob", ".wmv"],
+                   "Document": [".doc", ".docx", ".pdf", ".rtf", ".tex",
+                                ".txt", ".wks", ".wps", ".wpd"],
+                   "Programming": [".c", ".class", ".cpp", ".cs", ".h", ".py",
+                                   ".java", ".sh", ".swift", ".vb", ".v",
+                                   ".css", ".js", ".php", ".htm", ".html"]}
+FILE_COLORS = {"Default": (125, 68, 39), "Audio": (249, 136, 102),
+               "Executable": (51, 107, 135), "Image": (204, 56, 32),
+               "Presentation": (128, 189, 158), "Spreadsheet": (137, 218, 89),
+               "Video": (255, 66, 14), "Document": (89, 130, 52),
+               "Programming": (144, 175, 197)}
 
 
 class FileSystemTree:
@@ -25,8 +45,8 @@ class FileSystemTree:
     def __init__(self, directory: str) -> None:
         """ Creates a FileSystemTree representing the folder """
         self._name = os.path.basename(directory)
-        self._colour = (randint(0, 255), randint(0, 255), randint(0, 255))
         self._init_subtrees(directory)
+        self._init_colour(self._name)
         self._init_data_size(directory)
 
     def _init_subtrees(self, directory: str) -> None:
@@ -39,6 +59,18 @@ class FileSystemTree:
 
         for subtree in self._subtrees:
             subtree._parent_tree = self
+
+    def _init_colour(self, name: str) -> None:
+        """ Picks a color for the rectangle based on the file type """
+        if len(self._subtrees) > 0:
+            self._colour = (100, 100, 100)
+        else:
+            file_type = "Default"
+            for category in FILE_EXTENSIONS:
+                for extension in FILE_EXTENSIONS[category]:
+                    if name.lower().endswith(extension):
+                        file_type = category
+            self._colour = FILE_COLORS[file_type]
 
     def _init_data_size(self, directory: str) -> None:
         """ init helper which computes the size of the tree's directory """
@@ -223,11 +255,12 @@ def _render(surface: pygame.Surface, tree: Optional[FileSystemTree],
             selected_item: Optional[FileSystemTree]) -> None:
     """ Updates the visual when any changes are made """
     _clear_screen(surface)
-    subscreen = surface.subsurface((0, 0, DIMENSIONS[0], DIMENSIONS[1] - 25))
+    sub_surface = surface.subsurface((0, 0, DIMENSIONS[0], DIMENSIONS[1] - 25))
     for rect in tree.get_visible_rectangles():
-        pygame.draw.rect(subscreen, rect[1], rect[0])
+        pygame.draw.rect(sub_surface, rect[1], rect[0])
+        pygame.draw.rect(sub_surface, (0, 0, 0), rect[0], 1)
     if selected_item is not None:
-        pygame.draw.rect(subscreen, (255, 255, 255), selected_item.rect, 2)
+        pygame.draw.rect(sub_surface, (255, 255, 255), selected_item.rect, 2)
     _render_text(surface, _get_display_text(selected_item))
     pygame.display.flip()
 
@@ -288,15 +321,17 @@ def _get_size_text(selected: Optional[FileSystemTree]) -> str:
     """ Converts the size to something more readable """
     size_bits = selected.data_size
     unit = " Bytes"
-    if size_bits > 1024:
-        size_bits = round(size_bits / 1024, 2)
-        unit = " KB"
+    if size_bits > 1073741824:
+        size_bits = round(size_bits / 1073741824, 2)
+        unit = " GB"
     elif size_bits > 1048576:
         size_bits = round(size_bits / 1048576, 2)
         unit = " MB"
-    elif size_bits > 1073741824:
-        size_bits = round(size_bits / 1073741824, 2)
-        unit = " GB"
+    elif size_bits > 1024:
+        size_bits = round(size_bits / 1024, 2)
+        unit = " KB"
+    elif size_bits == 1:
+        unit = " Byte"
     return str(size_bits) + unit
 
 
