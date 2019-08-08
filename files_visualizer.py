@@ -19,14 +19,19 @@ FILE_EXTENSIONS = {"Audio": [".aif", ".cda", ".mid", ".midi", "mp3",
                              ".swf", ".vob", ".wmv"],
                    "Document": [".doc", ".docx", ".pdf", ".rtf", ".tex",
                                 ".txt", ".wks", ".wps", ".wpd"],
-                   "Programming": [".c", ".class", ".cpp", ".cs", ".h", ".py",
+                   "Source Code": [".c", ".class", ".cpp", ".cs", ".h", ".py",
                                    ".java", ".sh", ".swift", ".vb", ".v",
                                    ".css", ".js", ".php", ".htm", ".html"]}
-FILE_COLORS = {"Default": (125, 68, 39), "Audio": (249, 136, 102),
-               "Executable": (51, 107, 135), "Image": (204, 56, 32),
-               "Presentation": (128, 189, 158), "Spreadsheet": (137, 218, 89),
-               "Video": (255, 66, 14), "Document": (89, 130, 52),
-               "Programming": (144, 175, 197)}
+
+FILE_COLORS = {"Executable": (51, 107, 135),
+               "Source Code": (144, 175, 197),
+               "Video": (255, 66, 14),
+               "Image": (204, 56, 32),
+               "Audio": (249, 136, 102),
+               "Document": (89, 130, 52),
+               "Presentation": (128, 189, 158),
+               "Spreadsheet": (137, 218, 89),
+               "Other File": (125, 68, 39)}
 
 
 class FileSystemTree:
@@ -65,7 +70,7 @@ class FileSystemTree:
         if len(self._subtrees) > 0:
             self._colour = (100, 100, 100)
         else:
-            file_type = "Default"
+            file_type = "Other File"
             for category in FILE_EXTENSIONS:
                 for extension in FILE_EXTENSIONS[category]:
                     if name.lower().endswith(extension):
@@ -255,28 +260,73 @@ def _render(surface: pygame.Surface, tree: Optional[FileSystemTree],
             selected_item: Optional[FileSystemTree]) -> None:
     """ Updates the visual when any changes are made """
     _clear_screen(surface)
-    sub_surface = surface.subsurface((0, 0, DIMENSIONS[0], DIMENSIONS[1] - 25))
-    for rect in tree.get_visible_rectangles():
-        pygame.draw.rect(sub_surface, rect[1], rect[0])
-        pygame.draw.rect(sub_surface, (0, 0, 0), rect[0], 1)
-    if selected_item is not None:
-        pygame.draw.rect(sub_surface, (255, 255, 255), selected_item.rect, 2)
+    _add_legend(surface)
+    sub_surface = surface.subsurface(
+        (0, 0, DIMENSIONS[0] - 180, DIMENSIONS[1] - 25))
+    _draw_rectangles(sub_surface, tree, selected_item)
     _render_text(surface, _get_display_text(selected_item))
     pygame.display.flip()
 
 
+def _draw_rectangles(surface: pygame.Surface, tree: Optional[FileSystemTree],
+                     selected_item: Optional[FileSystemTree]) -> None:
+    """ Draws the rectangles of the visual """
+    for rect in tree.get_visible_rectangles():
+        pygame.draw.rect(surface, rect[1], rect[0])
+        pygame.draw.rect(surface, (0, 0, 0), rect[0], 1)
+    if selected_item is not None:
+        pygame.draw.rect(surface, (255, 255, 255), selected_item.rect, 2)
+
+
+def _add_legend(title_text: pygame.Surface) -> None:
+    """ Adds the file type - color legend """
+    sub_surface = title_text.subsurface((DIMENSIONS[0] - 178, 0,
+                                         178, DIMENSIONS[1] - 25))
+    pygame.draw.rect(sub_surface, pygame.color.THECOLORS["aliceblue"],
+                     (0, 0, 178, DIMENSIONS[1] - 25))
+    sub_surface.blit(pygame.font.SysFont("Segoe UI", 30, True).render
+                     ("Legend", 1, pygame.color.THECOLORS["black"]), (35, 15))
+    _add_legend_items(sub_surface)
+    _add_author(sub_surface)
+
+
+def _add_legend_items(surface: pygame.Surface) -> None:
+    """ Adds the actual color - text content of the legend """
+    surface.blit(pygame.font.SysFont("Segoe UI", 15).
+                 render("Folder", 1, pygame.color.THECOLORS["black"]), (60, 70))
+    pygame.draw.rect(surface, (100, 100, 100), (30, 74, 15, 15))
+    pygame.draw.rect(surface, (0, 0, 0), (30, 74, 15, 15), 1)
+
+    y_position = 95
+    for item in FILE_COLORS:
+            surface.blit(pygame.font.SysFont("Segoe UI", 15).
+                         render(item, 1, pygame.color.THECOLORS["black"]),
+                         (60, y_position))
+            pygame.draw.rect(surface, FILE_COLORS[item],
+                             (30, y_position + 4, 15, 15))
+            pygame.draw.rect(surface, (0, 0, 0),
+                             (30, y_position + 4, 15, 15), 1)
+            y_position += 25
+
+
+def _add_author(surface: pygame.Surface) -> None:
+    """ Because credit """
+    surface.blit(pygame.font.SysFont("Segoe UI", 15).render
+                 ("Github: Fsq-Poplar", 1, pygame.color.THECOLORS["black"]),
+                 (27, DIMENSIONS[1] - 55))
+
+
 def _clear_screen(surface: pygame.Surface) -> None:
     """ Resets the screen so text is not messed up """
-    pygame.draw.rect(surface, pygame.color.THECOLORS['black'],
+    pygame.draw.rect(surface, pygame.color.THECOLORS["black"],
                      (0, 0, DIMENSIONS[0], DIMENSIONS[1]))
 
 
 def _render_text(screen: pygame.Surface, text: str) -> None:
     """ Shows the information pertinent to the selected directory """
-    font = pygame.font.SysFont("Segoe UI", 25 - 8)
-    text_surface = font.render(text, 1, pygame.color.THECOLORS['white'])
-    text_pos = (5, DIMENSIONS[1] - 25)
-    screen.blit(text_surface, text_pos)
+    screen.blit(pygame.font.SysFont("Segoe UI", 17)
+                .render(text, 1, pygame.color.THECOLORS['white']),
+                (5, DIMENSIONS[1] - 25))
 
 
 def _input_loop(screen: pygame.Surface, tree: FileSystemTree) -> None:
@@ -302,9 +352,9 @@ def _handle_click(mouse_act: int, selected: Optional[FileSystemTree]) -> None:
     """ Expands selected if left click, collapses otherwise """
     if selected is None:
         pass
-    elif mouse_act == 1:
+    elif mouse_act == 1:  # Left click
         selected.expand(False)
-    elif mouse_act == 3:
+    elif mouse_act == 3:  # Right click
         selected.collapse(False)
 
 
