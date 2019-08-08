@@ -1,11 +1,19 @@
 from __future__ import annotations
 import os
 import math
+import pygame
+import sys
 from random import randint
 from typing import List, Tuple, Optional
 
+DIMENSIONS = (854, 480)
+
 
 class FileSystemTree:
+    """ A tree which represents the data of a file structure.
+     rect, _expanded and _colour: used for the visualization
+     data_size and _name: data about the file/folder
+     _subtrees and _parent_tree: simply part of its tree structure"""
     rect: Tuple[int, int, int, int] = (0, 0, 0, 0)
     data_size: int
     _colour: Tuple[int, int, int]
@@ -17,7 +25,7 @@ class FileSystemTree:
     def __init__(self, directory: str) -> None:
         """ Creates a FileSystemTree representing the folder """
         self._name = os.path.basename(directory)
-        self._colour = (randint(0, 255), randint(0, 255), randint(0, 255))  # TODO: better color picking
+        self._colour = (randint(0, 255), randint(0, 255), randint(0, 255))
         self._init_subtrees(directory)
         self._init_data_size(directory)
 
@@ -198,3 +206,100 @@ class FileSystemTree:
             return self._name
         else:
             return self._parent_tree.get_directory() + os.sep + self._name
+
+
+def visualize(tree: FileSystemTree) -> None:
+    """ Draws the initial state of the visualization using pygame """
+    pygame.init()
+    screen = pygame.display.set_mode(DIMENSIONS)
+    pygame.display.set_caption("Simple Python File System Visualizer")
+    _render(screen, tree, None)
+    tree.construct_rectangles((0, 0, DIMENSIONS[0], DIMENSIONS[1] - 25))
+    tree.expand(True)
+    _input_loop(screen, tree)
+
+
+def _render(surface: pygame.Surface, tree: Optional[FileSystemTree],
+            selected_item: Optional[FileSystemTree]) -> None:
+    """ Updates the visual when any changes are made """
+    _clear_screen(surface)
+    subscreen = surface.subsurface((0, 0, DIMENSIONS[0], DIMENSIONS[1] - 25))
+    for rect in tree.get_visible_rectangles():
+        pygame.draw.rect(subscreen, rect[1], rect[0])
+    if selected_item is not None:
+        pygame.draw.rect(subscreen, (255, 255, 255), selected_item.rect, 2)
+    _render_text(surface, _get_display_text(selected_item))
+    pygame.display.flip()
+
+
+def _clear_screen(surface: pygame.Surface) -> None:
+    """ Resets the screen so text is not messed up """
+    pygame.draw.rect(surface, pygame.color.THECOLORS['black'],
+                     (0, 0, DIMENSIONS[0], DIMENSIONS[1]))
+
+
+def _render_text(screen: pygame.Surface, text: str) -> None:
+    """ Shows the information pertinent to the selected directory """
+    font = pygame.font.SysFont("Segoe UI", 25 - 8)
+    text_surface = font.render(text, 1, pygame.color.THECOLORS['white'])
+    text_pos = (5, DIMENSIONS[1] - 25)
+    screen.blit(text_surface, text_pos)
+
+
+def _input_loop(screen: pygame.Surface, tree: FileSystemTree) -> None:
+    """ Infinite loop that changes the visuals based on a user input """
+    while True:
+        event = pygame.event.poll()
+        selected = tree.get_tree_at_position(pygame.mouse.get_pos())
+
+        if event.type == pygame.QUIT:
+            return None
+        elif event.type == pygame.MOUSEBUTTONUP:
+            _handle_click(event.button, selected)
+        elif event.type == pygame.KEYUP and selected is not None:
+            if event.key == pygame.K_e:
+                selected.expand(True)
+            elif event.key == pygame.K_c:
+                selected.collapse(True)
+
+        _render(screen, tree, selected)
+
+
+def _handle_click(mouse_act: int, selected: Optional[FileSystemTree]) -> None:
+    """ Expands selected if left click, collapses otherwise """
+    if selected is None:
+        pass
+    elif mouse_act == 1:
+        selected.expand(False)
+    elif mouse_act == 3:
+        selected.collapse(False)
+
+
+def _get_display_text(selected: Optional[FileSystemTree]) -> str:
+    """ Returns a string giving data for the selected directory """
+    if selected is None:
+        return "No file or folder selected."
+    else:
+        return selected.get_directory() + \
+               " (Size: {})".format(_get_size_text(selected))
+
+
+def _get_size_text(selected: Optional[FileSystemTree]) -> str:
+    """ Converts the size to something more readable """
+    size_bits = selected.data_size
+    unit = " Bytes"
+    if size_bits > 1024:
+        size_bits = round(size_bits / 1024, 2)
+        unit = " KB"
+    elif size_bits > 1048576:
+        size_bits = round(size_bits / 1048576, 2)
+        unit = " MB"
+    elif size_bits > 1073741824:
+        size_bits = round(size_bits / 1073741824, 2)
+        unit = " GB"
+    return str(size_bits) + unit
+
+
+""" Block which is actually run """
+file_tree = FileSystemTree(sys.argv[1])
+visualize(file_tree)
